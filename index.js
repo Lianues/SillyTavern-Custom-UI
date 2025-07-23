@@ -2,54 +2,80 @@ import { eventSource, event_types } from '../../../../script.js';
 
 (function () {
     const extensionName = "custom-ui-extension";
-    console.log(`[${extensionName}] Extension loaded. Waiting for APP_READY event...`);
+    const IFRAME_ID = "custom-ui-iframe";
 
     function applyCustomUi() {
-        console.log(`[${extensionName}] Applying Custom UI modifications...`);
+        console.log(`[${extensionName}] Applying final UI hijack strategy...`);
 
-        // 1. 识别关键的原生容器
-        const $middleColumn = $('#middle_column');
-        const $chatContainer = $('#chat-container');
-        const $formHolder = $('#form_holder');
+        // 1. 识别核心DOM元素
+        const chatElement = document.getElementById('chat');
+        const formHolder = document.getElementById('form_holder');
 
-        if ($middleColumn.length === 0 || $chatContainer.length === 0 || $formHolder.length === 0) {
-            console.error(`[${extensionName}] Critical UI elements not found. Aborting.`);
+        if (!chatElement || !formHolder) {
+            console.error(`[${extensionName}] Critical UI elements (#chat or #form_holder) not found. Aborting.`);
             return;
         }
 
-        // 2. 隐藏不需要的元素
-        $formHolder.hide(); // 输入框区域可以直接隐藏
-        $('#right-nav-panel, #left-nav-panel').css('z-index', '1001'); // 确保侧边栏在我们的UI之上
+        // 2. 隐藏输入框和不需要的面板
+        formHolder.style.display = 'none';
+        
+        // 确保侧边栏可以弹出
+        $('#right-nav-panel, #left-nav-panel').css('z-index', '1051');
 
-        // 3. 清空聊天容器并注入我们的UI
-        if ($('#custom-ui-iframe').length === 0) {
-            $chatContainer.empty(); // 清空原生聊天内容
-            $chatContainer.css({
-                'display': 'flex',
-                'flex-direction': 'column',
-                'height': '100%'
-            });
+        // 3. 清空聊天容器并使用MutationObserver阻止其被再次填充
+        
+        // 先断开已有的observer，以防重复执行
+        if (chatElement.observer) {
+            chatElement.observer.disconnect();
+        }
 
-            // 动态构建路径
+        // 清空所有子节点
+        while (chatElement.firstChild) {
+            chatElement.removeChild(chatElement.firstChild);
+        }
+        
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach(node => {
+                        // 如果添加的节点不是我们的iframe，立即移除它
+                        if (node.id !== IFRAME_ID) {
+                            console.warn(`[${extensionName}] Detected and blocked an attempt to re-populate #chat. Node removed:`, node);
+                            chatElement.removeChild(node);
+                        }
+                    });
+                }
+            }
+        });
+
+        observer.observe(chatElement, { childList: true });
+        chatElement.observer = observer; // 存储observer以便管理
+        console.log(`[${extensionName}] #chat has been cleared and is now under observation.`);
+
+        // 4. 注入我们的iframe
+        if ($(`#${IFRAME_ID}`).length === 0) {
             const scriptSrc = document.currentScript.src;
             const extensionBasePath = scriptSrc.substring(0, scriptSrc.lastIndexOf('/'));
             const iframeSrc = `${extensionBasePath}/custom-ui/index.html`;
-            
-            console.log(`[${extensionName}] Iframe SRC resolved to: ${iframeSrc}`);
 
-            const $iframe = $(`<iframe id="custom-ui-iframe" src="${iframeSrc}" style="width: 100%; height: 100%; border: none; flex-grow: 1;"></iframe>`);
-            
-            $chatContainer.append($iframe);
-            $chatContainer.show(); // 确保父容器是可见的
+            const iframe = document.createElement('iframe');
+            iframe.id = IFRAME_ID;
+            iframe.src = iframeSrc;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
 
-            $iframe.on('load', () => {
-                window.customUiFrame = $iframe[0].contentWindow;
-                console.log(`[${extensionName}] Custom UI iframe loaded into #chat-container.`);
-            });
+            chatElement.appendChild(iframe);
+            
+            iframe.onload = () => {
+                window.customUiFrame = iframe.contentWindow;
+                console.log(`[${extensionName}] Custom UI iframe successfully loaded.`);
+            };
         }
     }
 
     eventSource.on(event_types.APP_READY, function () {
-        setTimeout(applyCustomUi, 250); // 稍微增加延迟以确保所有原生布局脚本都已完成
+        // 使用一个更长的延迟来确保SillyTavern的布局和事件完全稳定
+        setTimeout(applyCustomUi, 500);
     });
 })();

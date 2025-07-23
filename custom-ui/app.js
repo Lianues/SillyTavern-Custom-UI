@@ -1,67 +1,111 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
     const sendButton = document.getElementById('send-button');
 
-    // 从父窗口获取 SillyTavern 的核心对象
-    const parentContext = window.parent.getContext();
-    const parentEventSource = window.parent.eventSource;
-    const parentEventTypes = window.parent.event_types;
-    const parentSendChatMessage = window.parent.send_chat_message;
+    let currentChatId = null; // 用于存储当前聊天文件的ID
+    let currentCharacterId = null; // 用于存储当前角色ID
+    let messageCount = 0; // 用于检测新消息
 
-    console.log('Custom UI script loaded and connected to parent context.');
+    console.log('Custom Standalone UI script loaded.');
 
-    // --- 数据流：从 SillyTavern 到 Custom UI ---
+    // --- API 辅助函数 ---
+
+    // 获取CSRF令牌 (SillyTavern API的必要部分)
+    async function getCsrfToken() {
+        try {
+            const response = await fetch('/api/get-csrf-token');
+            const data = await response.json();
+            return data.token;
+        } catch (error) {
+            console.error('Failed to get CSRF token:', error);
+            return null;
+        }
+    }
+
+    // 获取当前激活的角色和聊天信息
+    async function getCurrentContext() {
+        try {
+            // 这个端点能提供当前会话选择的角色和聊天文件
+            const response = await fetch('/api/context'); 
+            const data = await response.json();
+            currentCharacterId = data.characterId;
+            currentChatId = data.chatId;
+            return true;
+        } catch (error) {
+            console.error('Failed to get current context:', error);
+            return false;
+        }
+    }
+
+    // --- UI 函数 ---
 
     function addMessage(text, sender) {
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', `${sender}-message`);
         messageElement.textContent = text;
         chatMessages.appendChild(messageElement);
+    }
+    
+    function scrollToBottom() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    function loadChatHistory() {
-        chatMessages.innerHTML = ''; // 清空现有消息
-        const history = parentContext.chat;
-        if (history && history.length) {
-            history.forEach(message => {
-                const sender = message.is_user ? 'user' : 'bot';
-                addMessage(message.mes, sender);
-            });
+    async function loadChatHistory() {
+        if (!currentChatId || !currentCharacterId) {
+            await getCurrentContext();
         }
-        console.log(`Loaded ${history.length} messages from history.`);
-    }
 
-    function handleNewMessage(messageId) {
-        // messageId in this context is the index of the message in the chat array
-        const message = parentContext.chat[messageId];
-        if (message) {
-            const sender = message.is_user ? 'user' : 'bot';
-            addMessage(message.mes, sender);
-        }
-    }
+        try {
+            const response = await fetch(`/api/chats/get?file=${currentChatId}&avatar=${currentCharacterId}`);
+            const history = await response.json();
 
-    // --- 事件监听 ---
-    parentEventSource.on(parentEventTypes.USER_MESSAGE_RENDERED, handleNewMessage);
-    parentEventSource.on(parentEventTypes.CHARACTER_MESSAGE_RENDERED, handleNewMessage);
-    parentEventSource.on(parentEventTypes.CHAT_CHANGED, loadChatHistory);
-
-    // --- 交互流：从 Custom UI 到 SillyTavern ---
-
-    function handleSend() {
-        const messageText = userInput.value.trim();
-        if (messageText) {
-            userInput.value = '';
-            
-            // 调用父窗口的函数来发送消息
-            if (parentSendChatMessage) {
-                parentSendChatMessage(messageText, false);
-            } else {
-                console.error("Could not find 'send_chat_message' function on parent window.");
+            if (history && history.length > messageCount) {
+                chatMessages.innerHTML = ''; // 重新渲染整个聊天
+                history.forEach(message => {
+                    const sender = message.is_user ? 'user' : 'bot';
+                    addMessage(message.mes, sender);
+                });
+                messageCount = history.length;
+                scrollToBottom();
             }
+        } catch (error) {
+            console.error('Failed to load chat history:', error);
         }
     }
+
+    async function handleSend() {
+        const messageText = userInput.value.trim();
+        if (!messageText) return;
+
+        const originalValue = userInput.value;
+        userInput.value = '';
+
+        try {
+            const csrfToken = await getCsrfToken();
+            // 调用SillyTavern的生成端点
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: JSON.stringify({
+                    prompt: messageText,
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+            // 消息发送成功后，轮询会获取到新消息
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            userInput.value = originalValue; // 恢复输入以便用户重试
+        }
+    }
+
+    // --- 初始化和事件监听 ---
 
     sendButton.addEventListener('click', handleSend);
     userInput.addEventListener('keydown', (event) => {
@@ -71,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- 初始化 ---
-    loadChatHistory();
+    // 启动时加载一次，然后定期轮询
+    await loadChatHistory();
+    setInterval(loadChatHistory, 2000); // 每2秒检查一次更新
 });

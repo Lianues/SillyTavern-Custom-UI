@@ -27,8 +27,30 @@ import { eventSource, event_types } from '../../../../script.js';
             $('head').append(`<style id="custom-ui-styles">${styles}</style>`);
         }
 
-        $('#chat-container, #form_holder, #right-nav-panel, #left-nav-panel').hide();
-        console.log(`[${extensionName}] Original UI elements hidden.`);
+        const elementsToHide = ['#chat-container', '#form_holder', '#right-nav-panel', '#left-nav-panel'];
+        
+        // --- 强制隐藏与持续监控 ---
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                    const target = mutation.target;
+                    if (target.style.display !== 'none') {
+                        console.log(`[${extensionName}] Detected style change on ${target.id}. Re-hiding.`);
+                        target.style.display = 'none';
+                    }
+                }
+            });
+        });
+
+        elementsToHide.forEach(selector => {
+            const element = document.querySelector(selector);
+            if (element) {
+                element.style.display = 'none'; // 初始隐藏
+                observer.observe(element, { attributes: true });
+            }
+        });
+        
+        console.log(`[${extensionName}] Original UI elements hidden and now being monitored.`);
 
         if ($('#custom-ui-container').length === 0) {
             const $customUiContainer = $('<div id="custom-ui-container"></div>');
@@ -44,25 +66,10 @@ import { eventSource, event_types } from '../../../../script.js';
                 console.log(`[${extensionName}] Custom UI iframe loaded.`);
             });
         }
-
-        // --- 诊断日志 ---
-        let checkCount = 0;
-        const maxChecks = 25; // 检查5秒
-        const interval = setInterval(() => {
-            const $chat = $('#chat-container');
-            if ($chat.css('display') !== 'none') {
-                console.error(`[${extensionName}] DIAGNOSIS: #chat-container was made visible again! Display is now: ${$chat.css('display')}`);
-                clearInterval(interval);
-            }
-            checkCount++;
-            if (checkCount >= maxChecks) {
-                console.log(`[${extensionName}] DIAGNOSIS: #chat-container remained hidden for 5 seconds.`);
-                clearInterval(interval);
-            }
-        }, 200);
     }
 
     eventSource.on(event_types.APP_READY, function () {
-        setTimeout(applyCustomUi, 100);
+        // 使用一个稍长的延迟来确保所有原生UI都已初始化
+        setTimeout(applyCustomUi, 200);
     });
 })();

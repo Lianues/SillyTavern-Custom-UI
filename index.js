@@ -1,8 +1,7 @@
 // BeyondTavern Extension Main File
 
-import { getContext } from "../../../scripts/st-context.js";
-import { eventSource, event_types } from "../../../script.js";
-import { sendSystemMessage } from "../../../../../script.js";
+import { getContext } from "../../../../public/scripts/st-context.js";
+import { eventSource, event_types, sendSystemMessage } from "../../../../public/script.js";
 
 (function () {
     let gameWindow = null;

@@ -3,7 +3,7 @@
     "display_name": "BeyondTavern Game Launcher",
     "author": "Roo (Originally by a1357z)",
     "description": "Launches BeyondTavern games in a new window and communicates with SillyTavern.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "loading_order": 99,
     "js": "index.js",
     "css": "style.css"

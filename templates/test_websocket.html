@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        body {
+                    font-family: Arial, sans-serif;
+                    padding: 20px;
+                }
+
+                #messages {
+                    border: 1px solid #ccc;
+                    padding: 10px;
+                    height: 300px;
+                    overflow-y: scroll;
+                    margin-bottom: 10px;
+                }
+
+                #input-container {
+                    display: flex;
+                }
+
+                #message-input {
+                    flex: 1;
+                    padding: 10px;
+                    border: 1px solid #ccc;
+                    border-radius: 4px;
+                }
+
+                #send-button {
+                    padding: 10px;
+                    background-color: #007BFF;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    margin-left: 10px;
+                }
+
+                #send-button:hover {
+                    background-color: #0056b3;
+                }
+    </style>
+</head>
+
+<body>
+<h1>WebSocket Test</h1>
+<div id="messages"></div>
+<div id="input-container">
+    <input type="text" id="message-input" placeholder="Type a message">
+    <button id="send-button">Send</button>
+</div>
+
+<script>
+    // 连接到 WebSocket 服务端
+    const auth = JSON.stringify({
+        username: 'admin', // 替换为 config.json 中的用户名
+        password: 'password' // 替换为 config.json 中的密码
+    });
+
+    const socket = io('http://192.168.1.82:11211', {
+        query: {
+            auth: auth
+        }
+    });
+
+    // 消息显示容器
+    const messagesDiv = document.getElementById('messages');
+
+    // 监听酒馆端消息
+    socket.on('response', (data) => {
+        const message = document.createElement('div');
+        // 显示消息来源和内容
+        message.textContent = `Server (from ${data.source}): ${data.message}`;
+        messagesDiv.appendChild(message);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+// 发送消息到服务端
+document.getElementById('send-button').addEventListener('click', () => {
+    const input = document.getElementById('message-input');
+    const message = input.value;
+
+    if (message) {
+        // 直接组装成trigger命令格式
+        const command = `/send "${message}"|/trigger`;
+
+        // 发送带有 source 标记和命令的 JSON 消息
+        socket.send(JSON.stringify({
+            message: command,
+            source: 'TestWebSocket'
+        }));
+
+        // 显示到本地消息
+        const messageDiv = document.createElement('div');
+        messageDiv.textContent = `You: ${message}`;
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        // 清空输入框
+        input.value = '';
+    }
+});
+</script>
+</body>
+
+</html>

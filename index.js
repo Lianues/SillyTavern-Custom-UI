@@ -1,37 +1,75 @@
-import { eventSource, event_types } from '../../../../script.js';
+// BeyondTavern Extension Main File
+
+import { getContext } from "../../../scripts/st-context.js";
+import { eventSource, event_types } from "../../../script.js";
+import { sendSystemMessage } from "../../../../../script.js";
 
 (function () {
-    const extensionName = "custom-ui-extension";
-    console.log(`[${extensionName}] Loaded. Preparing for redirect...`);
+    let gameWindow = null;
+    const extensionBasePath = new URL(document.currentScript.src).pathname.replace(/\/[^/]+$/, '');
+    const channel = new BroadcastChannel('beyond_tavern_channel');
 
-    // 确保只执行一次重定向
-    let redirected = false;
+    // Function to create and add the launcher button to the UI
+    function addLauncherButton() {
+        const button = $('<button id="beyond-tavern-launcher">Launch Game</button>');
+        
+        button.on('click', function() {
+            const gameUrl = `${extensionBasePath}/templates/index.html`;
+            
+            if (gameWindow && !gameWindow.closed) {
+                gameWindow.focus();
+            } else {
+                gameWindow = window.open(gameUrl, 'BeyondTavernGame', 'width=800,height=600');
+            }
+            console.log(`[BeyondTavern] Attempting to launch game from: ${gameUrl}`);
+        });
 
-    function redirectToCustomUi() {
-        if (redirected) return;
-        redirected = true;
-
-        console.log(`[${extensionName}] APP_READY received. Redirecting to custom UI...`);
-
-        // 动态构建路径
-        const scriptSrc = document.currentScript.src;
-        const extensionBasePath = scriptSrc.substring(0, scriptSrc.lastIndexOf('/'));
-        const newUrl = `${extensionBasePath}/custom-ui/index.html`;
-
-        console.log(`[${extensionName}] Redirecting to: ${newUrl}`);
-        window.location.replace(newUrl);
+        $('body').append(button);
     }
 
-    // 在SillyTavern应用准备好后立即重定向
-    eventSource.on(event_types.APP_READY, redirectToCustomUi);
+    // Wait for the document to be fully loaded before adding the button
+    $(document).ready(function () {
+        const context = getContext();
 
-    // 作为后备，如果APP_READY事件错过了，在文档加载完成后也尝试重定向
-    $(document).ready(function() {
-        setTimeout(() => {
-            if (!redirected) {
-                console.warn(`[${extensionName}] APP_READY event not caught, redirecting via document.ready as a fallback.`);
-                redirectToCustomUi();
+        // Function to handle incoming messages and send them to the game window
+        function handleMessage(message) {
+            if (gameWindow && !gameWindow.closed) {
+                console.log('[BeyondTavern] Sending message to game window:', message);
+                channel.postMessage({
+                    type: 'message',
+                    payload: {
+                        name: message.name,
+                        is_user: message.is_user,
+                        message: message.mes,
+                    }
+                });
             }
-        }, 1000); // 延迟1秒等待
+        }
+
+        addLauncherButton();
+        console.log('[BeyondTavern] Launcher button added.');
+
+        // Listen for messages from the game window
+        channel.onmessage = function(event) {
+            console.log('[BeyondTavern] Message received from game window:', event.data);
+            const data = event.data;
+            if (data && data.type === 'command') {
+                const command = data.payload;
+                // Send the command as a user message in SillyTavern
+                sendSystemMessage('user', command);
+            }
+        };
+
+        // Listen for new messages in SillyTavern
+        eventSource.on(event_types.USER_MESSAGE_RENDERED, (messageId) => {
+            const message = context.chat.find(msg => msg.id === messageId);
+            if(message) handleMessage(message);
+        });
+        eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, (messageId) => {
+            const message = context.chat.find(msg => msg.id === messageId);
+            if(message) handleMessage(message);
+        });
+
+        console.log('[BeyondTavern] Listening for chat messages.');
     });
 })();

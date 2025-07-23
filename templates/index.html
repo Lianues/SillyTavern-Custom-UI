@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beyond Tavern</title>
+  <style>
+    /* 通用样式 */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+      margin: 20px 0;
+      font-family: 'Georgia', serif;
+    }
+
+    .container {
+      display: grid;
+      gap: 20px;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* 网格布局 */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+    }
+
+    .game-card {
+      text-align: center;
+    }
+
+.game-card img {
+  width: 100%;
+  max-width: 300px; /* 限制封面最大宽度 */
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin: 0 auto; /* 居中对齐 */
+}
+
+    .game-card p {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #333;
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      .container {
+        padding: 10px;
+      }
+
+      .game-card p {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Beyond Tavern</h1>
+  <div class="container">
+    <div class="grid" id="game-grid">
+      <!-- 游戏卡片将通过 JavaScript 动态加载 -->
+    </div>
+  </div>
+
+  <script>
+
+    // 动态生成游戏卡片
+document.addEventListener("DOMContentLoaded", () => {
+  // 获取游戏列表
+  fetch('games.json') // 从本地JSON文件获取
+    .then(response => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch games.json");
+      }
+      return response.json();
+    })
+    .then(games => {
+      const gameGrid = document.getElementById("game-grid");
+      games.forEach(game => {
+        const gameCard = document.createElement("div");
+        gameCard.className = "game-card";
+
+        // 创建链接
+        const gameLink = document.createElement("a");
+        gameLink.href = `../games/${game.name}/game.html`; // 改为相对路径
+        gameLink.style.textDecoration = "none"; // 去掉下划线
+
+        const gameImage = document.createElement("img");
+        gameImage.src = game.cover; // 路径在games.json中已是相对路径
+        gameImage.alt = game.name;
+
+        const gameName = document.createElement("p");
+        gameName.textContent = game.name;
+
+        // 将图片和名称放入链接中
+        gameLink.appendChild(gameImage);
+        gameLink.appendChild(gameName);
+
+        // 将链接添加到卡片中
+        gameCard.appendChild(gameLink);
+        gameGrid.appendChild(gameCard);
+      });
+    })
+    .catch(error => {
+      console.error("Error loading games:", error);
+    });
+});
+  </script>
+
+  <script>
+    // BeyondTavern Game Window Communication
+    (function() {
+        const channel = new BroadcastChannel('beyond_tavern_channel');
+        console.log('[BeyondTavern Game] Listening for messages from SillyTavern.');
+
+        channel.onmessage = function(event) {
+            console.log('[BeyondTavern Game] Message received from SillyTavern:', event.data);
+            
+            // 在这里处理接收到的消息
+            // 例如，可以在页面上显示消息
+            const display = document.createElement('div');
+            display.textContent = `Received: ${JSON.stringify(event.data)}`;
+            document.body.appendChild(display);
+        };
+
+        // 示例：向 SillyTavern 发送消息
+        function sendCommandToTavern(command) {
+            console.log(`[BeyondTavern Game] Sending command to SillyTavern: ${command}`);
+            channel.postMessage({ type: 'command', payload: command });
+        }
+
+        // 将发送功能暴露到全局，以便游戏逻辑调用
+        window.sendCommandToTavern = sendCommandToTavern;
+    })();
+  </script>
+</body>
+</html>

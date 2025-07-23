@@ -1,9 +1,10 @@
 // BeyondTavern Extension Main File
 
 import { getContext } from "../../../../public/scripts/st-context.js";
-import { eventSource, event_types, sendSystemMessage } from "../../../../public/script.js";
+import { eventSource, event_types } from "../../../../public/script.js";
 
 (function () {
+    // sendSystemMessage is a global function, no need to import it.
     let gameWindow = null;
     const extensionBasePath = new URL(document.currentScript.src).pathname.replace(/\/[^/]+$/, '');
     const channel = new BroadcastChannel('beyond_tavern_channel');

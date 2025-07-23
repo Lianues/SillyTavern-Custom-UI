@@ -14,10 +14,10 @@ import { eventSource, event_types } from '../../../../script.js';
             }
             #custom-ui-container {
                 position: fixed;
-                top: 50px; /* The height of the top bar */
+                top: 50px;
                 left: 0;
                 right: 0;
-                bottom: 0; /* Stretch to the bottom of the viewport */
+                bottom: 0;
                 z-index: 1000;
                 background-color: var(--bg1);
             }
@@ -54,8 +54,14 @@ import { eventSource, event_types } from '../../../../script.js';
             const $customUiContainer = $('<div id="custom-ui-container"></div>');
             $('body').append($customUiContainer);
 
-            const extensionPath = `scripts/extensions/third-party/custom-ui-extension/custom-ui/index.html`;
-            const $iframe = $(`<iframe id="custom-ui-iframe" src="${extensionPath}" style="width: 100%; height: 100%; border: none;"></iframe>`);
+            // Dynamically determine the path to the extension's files
+            const scriptSrc = document.currentScript.src;
+            const extensionBasePath = scriptSrc.substring(0, scriptSrc.lastIndexOf('/'));
+            const iframeSrc = `${extensionBasePath}/custom-ui/index.html`;
+            
+            console.log(`[${extensionName}] Iframe SRC resolved to: ${iframeSrc}`);
+
+            const $iframe = $(`<iframe id="custom-ui-iframe" src="${iframeSrc}" style="width: 100%; height: 100%; border: none;"></iframe>`);
             
             $customUiContainer.append($iframe);
 

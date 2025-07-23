@@ -13,11 +13,11 @@ import { eventSource, event_types } from '../../../../script.js';
                 visibility: hidden !important;
             }
             #custom-ui-container {
-                height: calc(100% - 50px);
                 position: fixed;
-                top: 50px;
+                top: 50px; /* The height of the top bar */
                 left: 0;
-                width: 100%;
+                right: 0;
+                bottom: 0; /* Stretch to the bottom of the viewport */
                 z-index: 1000;
                 background-color: var(--bg1);
             }
@@ -64,36 +64,6 @@ import { eventSource, event_types } from '../../../../script.js';
                 console.log(`[${extensionName}] Custom UI iframe loaded.`);
             });
         }
-
-        // --- 深度诊断日志 ---
-        setTimeout(() => {
-            const container = document.getElementById('custom-ui-container');
-            const chat = document.getElementById('chat-container');
-
-            if (container) {
-                const rect = container.getBoundingClientRect();
-                console.log(`[${extensionName}] DIAGNOSIS: #custom-ui-container stats ->`, {
-                    display: window.getComputedStyle(container).display,
-                    visibility: window.getComputedStyle(container).visibility,
-                    opacity: window.getComputedStyle(container).opacity,
-                    width: rect.width,
-                    height: rect.height,
-                    top: rect.top,
-                    left: rect.left,
-                    zIndex: window.getComputedStyle(container).zIndex,
-                    parent: container.parentElement.tagName.toLowerCase(),
-                });
-            } else {
-                console.error(`[${extensionName}] DIAGNOSIS: #custom-ui-container not found in DOM!`);
-            }
-
-            if (chat) {
-                 console.log(`[${extensionName}] DIAGNOSIS: #chat-container hidden status ->`, {
-                    display: window.getComputedStyle(chat).display,
-                    visibility: window.getComputedStyle(chat).visibility,
-                });
-            }
-        }, 500); // 延迟500毫秒以等待浏览器渲染
     }
 
     eventSource.on(event_types.APP_READY, function () {

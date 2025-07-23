@@ -4,38 +4,39 @@ import { eventSource, event_types } from '../../../../script.js';
     const extensionName = "custom-ui-extension";
     console.log(`[${extensionName}] Extension loaded. Waiting for APP_READY event...`);
 
-    // 使用SillyTavern的APP_READY事件，确保所有UI元素都已加载
-    eventSource.on(event_types.APP_READY, function () {
-        console.log(`[${extensionName}] APP_READY event received. Modifying UI...`);
+    function applyCustomUi() {
+        console.log(`[${extensionName}] Applying Custom UI modifications...`);
 
         // 注入CSS来强制隐藏旧UI并设置新容器的样式
         const styles = `
-            #chat-container, #form_holder {
+            #chat-container, #form_holder, #right-nav-panel, #left-nav-panel {
                 display: none !important;
             }
             #custom-ui-container {
-                height: calc(100% - 130px); /* 减去顶部栏和一些边距 */
-                position: absolute;
-                bottom: 0;
+                height: calc(100% - 50px); /* 仅减去顶部栏高度 */
+                position: fixed;
+                top: 50px; /* 在顶部栏下方开始 */
                 left: 0;
                 width: 100%;
-                z-index: 10; /* 确保在顶层 */
+                z-index: 1000; /* 提高层级 */
+                background-color: var(--bg1); /* 使用SillyTavern的背景色变量 */
             }
         `;
-        $('head').append(`<style>${styles}</style>`);
+        
+        // 确保样式只被添加一次
+        if ($('#custom-ui-styles').length === 0) {
+            $('head').append(`<style id="custom-ui-styles">${styles}</style>`);
+        }
 
-        // 1. 隐藏原生UI元素 (通过CSS实现，JS作为后备)
-        $('#chat-container').hide();
-        $('#form_holder').hide();
-        console.log(`[${extensionName}] Original UI elements hidden via CSS and JS.`);
+        // 再次隐藏，以防万一
+        $('#chat-container, #form_holder, #right-nav-panel, #left-nav-panel').hide();
+        console.log(`[${extensionName}] Original UI elements hidden.`);
 
-        // 2. 创建并注入我们自定义UI的容器
+        // 创建并注入我们自定义UI的容器
         if ($('#custom-ui-container').length === 0) {
             const $customUiContainer = $('<div id="custom-ui-container"></div>');
-            // 注入到 #top-bar 的后面，确保在主内容区域
-            $('#top-bar').after($customUiContainer);
+            $('body').append($customUiContainer); // 直接附加到body，以获得更好的控制
 
-            // 3. 将我们的自定义UI通过iframe加载到容器中
             const extensionPath = `scripts/extensions/third-party/custom-ui-extension/custom-ui/index.html`;
             const $iframe = $(`<iframe id="custom-ui-iframe" src="${extensionPath}" style="width: 100%; height: 100%; border: none;"></iframe>`);
             
@@ -43,8 +44,14 @@ import { eventSource, event_types } from '../../../../script.js';
 
             $iframe.on('load', () => {
                 window.customUiFrame = $iframe[0].contentWindow;
-                console.log(`[${extensionName}] Custom UI iframe loaded and exposed as window.customUiFrame.`);
+                console.log(`[${extensionName}] Custom UI iframe loaded.`);
             });
         }
+    }
+
+    // 使用SillyTavern的APP_READY事件
+    eventSource.on(event_types.APP_READY, function () {
+        // 增加一个短暂的延迟，确保所有SillyTavern的UI脚本都已执行完毕
+        setTimeout(applyCustomUi, 100);
     });
 })();

@@ -3,7 +3,7 @@
     "display_name": "Custom UI Extension",
     "author": "Roo",
     "description": "Replaces the default chat UI with a custom, modern interface.",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "loading_order": 999,
     "js": "index.js",
     "css": "custom-ui/style.css"

@@ -29,13 +29,11 @@ import { eventSource, event_types } from '../../../../script.js';
 
         const elementsToHide = ['#chat-container', '#form_holder', '#right-nav-panel', '#left-nav-panel'];
         
-        // --- 强制隐藏与持续监控 ---
         const observer = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                     const target = mutation.target;
                     if (target.style.display !== 'none') {
-                        console.log(`[${extensionName}] Detected style change on ${target.id}. Re-hiding.`);
                         target.style.display = 'none';
                     }
                 }
@@ -45,12 +43,12 @@ import { eventSource, event_types } from '../../../../script.js';
         elementsToHide.forEach(selector => {
             const element = document.querySelector(selector);
             if (element) {
-                element.style.display = 'none'; // 初始隐藏
+                element.style.display = 'none';
                 observer.observe(element, { attributes: true });
             }
         });
         
-        console.log(`[${extensionName}] Original UI elements hidden and now being monitored.`);
+        console.log(`[${extensionName}] Original UI elements hidden and monitoring started.`);
 
         if ($('#custom-ui-container').length === 0) {
             const $customUiContainer = $('<div id="custom-ui-container"></div>');
@@ -66,10 +64,39 @@ import { eventSource, event_types } from '../../../../script.js';
                 console.log(`[${extensionName}] Custom UI iframe loaded.`);
             });
         }
+
+        // --- 深度诊断日志 ---
+        setTimeout(() => {
+            const container = document.getElementById('custom-ui-container');
+            const chat = document.getElementById('chat-container');
+
+            if (container) {
+                const rect = container.getBoundingClientRect();
+                console.log(`[${extensionName}] DIAGNOSIS: #custom-ui-container stats ->`, {
+                    display: window.getComputedStyle(container).display,
+                    visibility: window.getComputedStyle(container).visibility,
+                    opacity: window.getComputedStyle(container).opacity,
+                    width: rect.width,
+                    height: rect.height,
+                    top: rect.top,
+                    left: rect.left,
+                    zIndex: window.getComputedStyle(container).zIndex,
+                    parent: container.parentElement.tagName.toLowerCase(),
+                });
+            } else {
+                console.error(`[${extensionName}] DIAGNOSIS: #custom-ui-container not found in DOM!`);
+            }
+
+            if (chat) {
+                 console.log(`[${extensionName}] DIAGNOSIS: #chat-container hidden status ->`, {
+                    display: window.getComputedStyle(chat).display,
+                    visibility: window.getComputedStyle(chat).visibility,
+                });
+            }
+        }, 500); // 延迟500毫秒以等待浏览器渲染
     }
 
     eventSource.on(event_types.APP_READY, function () {
-        // 使用一个稍长的延迟来确保所有原生UI都已初始化
         setTimeout(applyCustomUi, 200);
     });
 })();
